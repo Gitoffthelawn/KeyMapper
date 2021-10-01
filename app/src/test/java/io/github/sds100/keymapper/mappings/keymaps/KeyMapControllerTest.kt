@@ -18,7 +18,9 @@ import io.github.sds100.keymapper.mappings.keymaps.trigger.TriggerKeyDevice
 import io.github.sds100.keymapper.mappings.keymaps.trigger.TriggerMode
 import io.github.sds100.keymapper.system.camera.CameraLens
 import io.github.sds100.keymapper.system.devices.InputDeviceInfo
+import io.github.sds100.keymapper.system.keyevents.KeyEventUtils
 import io.github.sds100.keymapper.util.*
+import junit.framework.Assert.assertFalse
 import junitparams.JUnitParamsRunner
 import junitparams.Parameters
 import junitparams.naming.TestCaseName
@@ -36,6 +38,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.kotlin.*
+import splitties.bitflags.minusFlag
 import splitties.bitflags.withFlag
 
 /**
@@ -154,17 +157,97 @@ class KeyMapControllerTest {
         coroutineScope.cleanupTestCoroutines()
     }
 
+    /**
+     * #753
+     */
+    @Test
+    fun `triggers with the shift key should not break word-selection with ctrl-shift-arrow`() =
+        coroutineScope.runBlockingTest {
+            //GIVEN
+
+            val trigger = parallelTrigger(
+                triggerKey(
+                    keyCode = KeyEvent.KEYCODE_SHIFT_LEFT,
+                    clickType = ClickType.SHORT_PRESS
+                ),
+                triggerKey(keyCode = KeyEvent.KEYCODE_2, clickType = ClickType.SHORT_PRESS),
+            )
+
+            keyMapListFlow.value = listOf(
+                KeyMap(0, trigger = trigger, actionList = listOf(TEST_ACTION))
+            )
+
+            inOrder(performActionsUseCase, detectKeyMapsUseCase) {
+                //WHEN inputting the trigger
+                mockParallelTrigger(trigger)
+
+                advanceUntilIdle()
+
+                //THEN perform the action
+                verify(performActionsUseCase, times(1)).perform(TEST_ACTION.data)
+
+                //WHEN inputting ctrl-shift-left-arrow
+
+                inputKeyEvent(
+                    keyCode = KeyEvent.KEYCODE_CTRL_LEFT,
+                    action = KeyEvent.ACTION_DOWN,
+                    metaState = KeyEvent.META_CTRL_LEFT_ON or KeyEvent.META_CTRL_ON
+                )
+
+                val consumedShiftKeyEvent = inputKeyEvent(
+                    keyCode = KeyEvent.KEYCODE_SHIFT_LEFT,
+                    action = KeyEvent.ACTION_DOWN,
+                    metaState = KeyEvent.META_CTRL_LEFT_ON or KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_LEFT_ON or KeyEvent.META_SHIFT_ON
+                )
+
+                inputKeyEvent(
+                    keyCode = KeyEvent.KEYCODE_DPAD_LEFT,
+                    action = KeyEvent.ACTION_DOWN,
+                    metaState = KeyEvent.META_CTRL_LEFT_ON or KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_LEFT_ON or KeyEvent.META_SHIFT_ON
+                )
+
+                inputKeyEvent(
+                    keyCode = KeyEvent.KEYCODE_CTRL_LEFT,
+                    action = KeyEvent.ACTION_UP,
+                    metaState = KeyEvent.META_SHIFT_LEFT_ON or KeyEvent.META_SHIFT_ON
+                )
+
+                inputKeyEvent(
+                    keyCode = KeyEvent.KEYCODE_SHIFT_LEFT,
+                    action = KeyEvent.ACTION_UP,
+                )
+
+                inputKeyEvent(
+                    keyCode = KeyEvent.KEYCODE_DPAD_LEFT,
+                    action = KeyEvent.ACTION_UP,
+                )
+
+                //THEN don't consume the shift key event
+                assertFalse(consumedShiftKeyEvent)
+            }
+        }
+
     @Test
     fun `Don't imitate button if 1 long press trigger is successful and another with a longer delay fails`() =
         coroutineScope.runBlockingTest {
             //GIVEN
 
             val longerTrigger =
-                singleKeyTrigger(triggerKey(KeyEvent.KEYCODE_VOLUME_DOWN, clickType = ClickType.LONG_PRESS))
+                singleKeyTrigger(
+                    triggerKey(
+                        KeyEvent.KEYCODE_VOLUME_DOWN,
+                        clickType = ClickType.LONG_PRESS
+                    )
+                )
                     .copy(longPressDelay = 900)
 
             val shorterTrigger =
-                singleKeyTrigger(triggerKey(KeyEvent.KEYCODE_VOLUME_DOWN, clickType = ClickType.LONG_PRESS))
+                singleKeyTrigger(
+                    triggerKey(
+                        KeyEvent.KEYCODE_VOLUME_DOWN,
+                        clickType = ClickType.LONG_PRESS
+                    )
+                )
                     .copy(longPressDelay = 500)
 
             keyMapListFlow.value = listOf(
@@ -180,7 +263,13 @@ class KeyMapControllerTest {
 
                 verify(performActionsUseCase, times(1)).perform(TEST_ACTION_2.data)
                 verify(performActionsUseCase, never()).perform(TEST_ACTION_2.data)
-                verify(detectKeyMapsUseCase, never()).imitateButtonPress(any(), any(), any(), any(), any())
+                verify(detectKeyMapsUseCase, never()).imitateButtonPress(
+                    any(),
+                    any(),
+                    any(),
+                    any(),
+                    any()
+                )
 
                 // If both triggers are detected
 
@@ -188,7 +277,13 @@ class KeyMapControllerTest {
 
                 verify(performActionsUseCase, times(1)).perform(TEST_ACTION_2.data)
                 verify(performActionsUseCase, times(1)).perform(TEST_ACTION.data)
-                verify(detectKeyMapsUseCase, never()).imitateButtonPress(any(), any(), any(), any(), any())
+                verify(detectKeyMapsUseCase, never()).imitateButtonPress(
+                    any(),
+                    any(),
+                    any(),
+                    any(),
+                    any()
+                )
 
                 //If no triggers are detected
 
@@ -196,7 +291,13 @@ class KeyMapControllerTest {
 
                 verify(performActionsUseCase, never()).perform(TEST_ACTION_2.data)
                 verify(performActionsUseCase, never()).perform(TEST_ACTION.data)
-                verify(detectKeyMapsUseCase, times(1)).imitateButtonPress(any(), any(), any(), any(), any())
+                verify(detectKeyMapsUseCase, times(1)).imitateButtonPress(
+                    any(),
+                    any(),
+                    any(),
+                    any(),
+                    any()
+                )
             }
         }
 
@@ -280,18 +381,30 @@ class KeyMapControllerTest {
 
             //WHEN
             inOrder(performActionsUseCase) {
-                assertThat(inputKeyEvent(KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.ACTION_DOWN), `is`(true))
+                assertThat(
+                    inputKeyEvent(KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.ACTION_DOWN),
+                    `is`(true)
+                )
                 delay(600)
-                assertThat(inputKeyEvent(KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.ACTION_UP), `is`(true))
+                assertThat(
+                    inputKeyEvent(KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.ACTION_UP),
+                    `is`(true)
+                )
                 advanceUntilIdle()
 
                 //THEN
                 verify(performActionsUseCase, times(1)).perform(keyMap1.actionList[0].data)
 
                 //WHEN
-                assertThat(inputKeyEvent(KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.ACTION_DOWN), `is`(true))
+                assertThat(
+                    inputKeyEvent(KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.ACTION_DOWN),
+                    `is`(true)
+                )
                 delay(1100)
-                assertThat(inputKeyEvent(KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.ACTION_UP), `is`(true))
+                assertThat(
+                    inputKeyEvent(KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.ACTION_UP),
+                    `is`(true)
+                )
                 advanceUntilIdle()
 
                 //THEN
@@ -304,23 +417,27 @@ class KeyMapControllerTest {
      * #694
      */
     @Test
-    fun `don't consume down and up event if no valid actions to perform`() = coroutineScope.runBlockingTest {
-        //GIVEN
-        val trigger = singleKeyTrigger(triggerKey(KeyEvent.KEYCODE_VOLUME_DOWN))
-        val actionList = listOf(KeyMapAction(data = ActionData.InputKeyEvent(2)))
+    fun `don't consume down and up event if no valid actions to perform`() =
+        coroutineScope.runBlockingTest {
+            //GIVEN
+            val trigger = singleKeyTrigger(triggerKey(KeyEvent.KEYCODE_VOLUME_DOWN))
+            val actionList = listOf(KeyMapAction(data = ActionData.InputKeyEvent(2)))
 
-        keyMapListFlow.value = listOf(KeyMap(trigger = trigger, actionList = actionList))
+            keyMapListFlow.value = listOf(KeyMap(trigger = trigger, actionList = actionList))
 
-        //WHEN
-        whenever(performActionsUseCase.getError(actionList[0].data)).thenReturn(Error.NoCompatibleImeChosen)
+            //WHEN
+            whenever(performActionsUseCase.getError(actionList[0].data)).thenReturn(Error.NoCompatibleImeChosen)
 
-        assertThat(inputKeyEvent(KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.ACTION_DOWN), `is`(false))
-        assertThat(inputKeyEvent(KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.ACTION_UP), `is`(false))
-        advanceUntilIdle()
+            assertThat(
+                inputKeyEvent(KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.ACTION_DOWN),
+                `is`(false)
+            )
+            assertThat(inputKeyEvent(KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.ACTION_UP), `is`(false))
+            advanceUntilIdle()
 
-        //THEN
-        verify(performActionsUseCase, never()).perform(actionList[0].data)
-    }
+            //THEN
+            verify(performActionsUseCase, never()).perform(actionList[0].data)
+        }
 
     /**
      * #689
@@ -370,7 +487,10 @@ class KeyMapControllerTest {
             )
 
             //WHEN
-            assertThat(inputKeyEvent(KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.ACTION_DOWN), `is`(true))
+            assertThat(
+                inputKeyEvent(KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.ACTION_DOWN),
+                `is`(true)
+            )
             assertThat(inputKeyEvent(KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.ACTION_UP), `is`(true))
             advanceUntilIdle()
 
@@ -422,35 +542,39 @@ class KeyMapControllerTest {
         }
 
     @Test
-    fun `multiple key maps with same trigger, perform both key maps`() = coroutineScope.runBlockingTest {
-        //GIVEN
-        val trigger = singleKeyTrigger(triggerKey(KeyEvent.KEYCODE_VOLUME_DOWN))
+    fun `multiple key maps with same trigger, perform both key maps`() =
+        coroutineScope.runBlockingTest {
+            //GIVEN
+            val trigger = singleKeyTrigger(triggerKey(KeyEvent.KEYCODE_VOLUME_DOWN))
 
-        val keyMaps = listOf(
-            KeyMap(
-                trigger = trigger,
-                actionList = listOf(TEST_ACTION)
-            ),
-            KeyMap(
-                trigger = trigger,
-                actionList = listOf(TEST_ACTION_2)
-            ),
-        )
+            val keyMaps = listOf(
+                KeyMap(
+                    trigger = trigger,
+                    actionList = listOf(TEST_ACTION)
+                ),
+                KeyMap(
+                    trigger = trigger,
+                    actionList = listOf(TEST_ACTION_2)
+                ),
+            )
 
-        keyMapListFlow.value = keyMaps
+            keyMapListFlow.value = keyMaps
 
-        //WHEN
+            //WHEN
 
-        //ensure consumed
-        assertThat(inputKeyEvent(KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.ACTION_DOWN), `is`(true))
-        delay(50)
-        assertThat(inputKeyEvent(KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.ACTION_UP), `is`(true))
+            //ensure consumed
+            assertThat(
+                inputKeyEvent(KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.ACTION_DOWN),
+                `is`(true)
+            )
+            delay(50)
+            assertThat(inputKeyEvent(KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.ACTION_UP), `is`(true))
 
-        //THEN
+            //THEN
 
-        verify(performActionsUseCase, times(1)).perform(TEST_ACTION.data)
-        verify(performActionsUseCase, times(1)).perform(TEST_ACTION_2.data)
-    }
+            verify(performActionsUseCase, times(1)).perform(TEST_ACTION.data)
+            verify(performActionsUseCase, times(1)).perform(TEST_ACTION_2.data)
+        }
 
     /**
      * issue #663
@@ -1344,28 +1468,40 @@ class KeyMapControllerTest {
             inputKeyEvent(
                 KeyEvent.KEYCODE_META_LEFT,
                 KeyEvent.ACTION_DOWN,
-                triggerKeyDeviceToInputDevice(FAKE_KEYBOARD_TRIGGER_KEY_DEVICE, FAKE_KEYBOARD_DEVICE_ID),
+                triggerKeyDeviceToInputDevice(
+                    FAKE_KEYBOARD_TRIGGER_KEY_DEVICE,
+                    FAKE_KEYBOARD_DEVICE_ID
+                ),
                 metaState,
                 scanCode = 117
             )
             inputKeyEvent(
                 KeyEvent.KEYCODE_E,
                 KeyEvent.ACTION_DOWN,
-                triggerKeyDeviceToInputDevice(FAKE_KEYBOARD_TRIGGER_KEY_DEVICE, FAKE_KEYBOARD_DEVICE_ID),
+                triggerKeyDeviceToInputDevice(
+                    FAKE_KEYBOARD_TRIGGER_KEY_DEVICE,
+                    FAKE_KEYBOARD_DEVICE_ID
+                ),
                 metaState,
                 scanCode = 33
             )
             inputKeyEvent(
                 KeyEvent.KEYCODE_META_LEFT,
                 KeyEvent.ACTION_UP,
-                triggerKeyDeviceToInputDevice(FAKE_KEYBOARD_TRIGGER_KEY_DEVICE, FAKE_KEYBOARD_DEVICE_ID),
+                triggerKeyDeviceToInputDevice(
+                    FAKE_KEYBOARD_TRIGGER_KEY_DEVICE,
+                    FAKE_KEYBOARD_DEVICE_ID
+                ),
                 metaState,
                 scanCode = 117
             )
             inputKeyEvent(
                 KeyEvent.KEYCODE_E,
                 KeyEvent.ACTION_UP,
-                triggerKeyDeviceToInputDevice(FAKE_KEYBOARD_TRIGGER_KEY_DEVICE, FAKE_KEYBOARD_DEVICE_ID),
+                triggerKeyDeviceToInputDevice(
+                    FAKE_KEYBOARD_TRIGGER_KEY_DEVICE,
+                    FAKE_KEYBOARD_DEVICE_ID
+                ),
                 scanCode = 33
             )
 
@@ -1400,28 +1536,40 @@ class KeyMapControllerTest {
             inputKeyEvent(
                 KeyEvent.KEYCODE_META_LEFT,
                 KeyEvent.ACTION_DOWN,
-                triggerKeyDeviceToInputDevice(FAKE_KEYBOARD_TRIGGER_KEY_DEVICE, FAKE_KEYBOARD_DEVICE_ID),
+                triggerKeyDeviceToInputDevice(
+                    FAKE_KEYBOARD_TRIGGER_KEY_DEVICE,
+                    FAKE_KEYBOARD_DEVICE_ID
+                ),
                 metaState,
                 scanCode = 117
             )
             inputKeyEvent(
                 KeyEvent.KEYCODE_E,
                 KeyEvent.ACTION_DOWN,
-                triggerKeyDeviceToInputDevice(FAKE_KEYBOARD_TRIGGER_KEY_DEVICE, FAKE_KEYBOARD_DEVICE_ID),
+                triggerKeyDeviceToInputDevice(
+                    FAKE_KEYBOARD_TRIGGER_KEY_DEVICE,
+                    FAKE_KEYBOARD_DEVICE_ID
+                ),
                 metaState,
                 scanCode = 33
             )
             inputKeyEvent(
                 KeyEvent.KEYCODE_E,
                 KeyEvent.ACTION_UP,
-                triggerKeyDeviceToInputDevice(FAKE_KEYBOARD_TRIGGER_KEY_DEVICE, FAKE_KEYBOARD_DEVICE_ID),
+                triggerKeyDeviceToInputDevice(
+                    FAKE_KEYBOARD_TRIGGER_KEY_DEVICE,
+                    FAKE_KEYBOARD_DEVICE_ID
+                ),
                 metaState,
                 scanCode = 33
             )
             inputKeyEvent(
                 KeyEvent.KEYCODE_META_LEFT,
                 KeyEvent.ACTION_UP,
-                triggerKeyDeviceToInputDevice(FAKE_KEYBOARD_TRIGGER_KEY_DEVICE, FAKE_KEYBOARD_DEVICE_ID),
+                triggerKeyDeviceToInputDevice(
+                    FAKE_KEYBOARD_TRIGGER_KEY_DEVICE,
+                    FAKE_KEYBOARD_DEVICE_ID
+                ),
                 metaState = 0,
                 scanCode = 117
             )
@@ -1458,7 +1606,6 @@ class KeyMapControllerTest {
         }
     }
 
-
     @Test
     fun `parallel trigger with 2 keys and the 2nd key is another trigger, press 2 key trigger, only the action for 2 key trigger should be performed `() =
         coroutineScope.runBlockingTest {
@@ -1480,8 +1627,17 @@ class KeyMapControllerTest {
             inOrder(performActionsUseCase) {
                 //test 1. test triggering 2 key trigger
                 //WHEN
-                inputKeyEvent(KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.ACTION_DOWN)
-                inputKeyEvent(KeyEvent.KEYCODE_A, KeyEvent.ACTION_DOWN)
+                inputKeyEvent(
+                    KeyEvent.KEYCODE_SHIFT_LEFT,
+                    KeyEvent.ACTION_DOWN,
+                    metaState = KeyEvent.META_SHIFT_LEFT_ON or KeyEvent.META_SHIFT_ON
+                )
+
+                inputKeyEvent(
+                    KeyEvent.KEYCODE_A,
+                    KeyEvent.ACTION_DOWN,
+                    metaState = KeyEvent.META_SHIFT_LEFT_ON or KeyEvent.META_SHIFT_ON
+                )
 
                 inputKeyEvent(KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.ACTION_UP)
                 inputKeyEvent(KeyEvent.KEYCODE_A, KeyEvent.ACTION_UP)
@@ -1839,25 +1995,25 @@ class KeyMapControllerTest {
     fun params_repeatAction() = listOf(
         arrayOf(
             "long press multiple keys", parallelTrigger(
-            triggerKey(KeyEvent.KEYCODE_VOLUME_DOWN, clickType = ClickType.LONG_PRESS),
-            triggerKey(KeyEvent.KEYCODE_VOLUME_UP, clickType = ClickType.LONG_PRESS)
-        )
+                triggerKey(KeyEvent.KEYCODE_VOLUME_DOWN, clickType = ClickType.LONG_PRESS),
+                triggerKey(KeyEvent.KEYCODE_VOLUME_UP, clickType = ClickType.LONG_PRESS)
+            )
         ),
         arrayOf(
             "long press single key", singleKeyTrigger(
-            triggerKey(KeyEvent.KEYCODE_VOLUME_DOWN, clickType = ClickType.LONG_PRESS)
-        )
+                triggerKey(KeyEvent.KEYCODE_VOLUME_DOWN, clickType = ClickType.LONG_PRESS)
+            )
         ),
         arrayOf(
             "short press multiple keys", parallelTrigger(
-            triggerKey(KeyEvent.KEYCODE_VOLUME_DOWN),
-            triggerKey(KeyEvent.KEYCODE_VOLUME_UP)
-        )
+                triggerKey(KeyEvent.KEYCODE_VOLUME_DOWN),
+                triggerKey(KeyEvent.KEYCODE_VOLUME_UP)
+            )
         ),
         arrayOf(
             "short press single key", singleKeyTrigger(
-            triggerKey(KeyEvent.KEYCODE_VOLUME_UP)
-        )
+                triggerKey(KeyEvent.KEYCODE_VOLUME_UP)
+            )
         )
     )
 
@@ -1893,16 +2049,16 @@ class KeyMapControllerTest {
     fun params_dualParallelTrigger_input2ndKey_dontConsumeUp() = listOf(
         arrayOf(
             "long press", parallelTrigger(
-            triggerKey(KeyEvent.KEYCODE_VOLUME_DOWN, clickType = ClickType.LONG_PRESS),
-            triggerKey(KeyEvent.KEYCODE_VOLUME_UP, clickType = ClickType.LONG_PRESS)
-        )
+                triggerKey(KeyEvent.KEYCODE_VOLUME_DOWN, clickType = ClickType.LONG_PRESS),
+                triggerKey(KeyEvent.KEYCODE_VOLUME_UP, clickType = ClickType.LONG_PRESS)
+            )
         ),
 
         arrayOf(
             "short press", parallelTrigger(
-            triggerKey(KeyEvent.KEYCODE_VOLUME_DOWN),
-            triggerKey(KeyEvent.KEYCODE_VOLUME_UP)
-        )
+                triggerKey(KeyEvent.KEYCODE_VOLUME_DOWN),
+                triggerKey(KeyEvent.KEYCODE_VOLUME_UP)
+            )
         )
     )
 
@@ -1919,7 +2075,11 @@ class KeyMapControllerTest {
 
         //when
         trigger.keys.forEach {
-            inputKeyEvent(it.keyCode, KeyEvent.ACTION_DOWN, triggerKeyDeviceToInputDevice(it.device))
+            inputKeyEvent(
+                it.keyCode,
+                KeyEvent.ACTION_DOWN,
+                triggerKeyDeviceToInputDevice(it.device)
+            )
         }
 
         var consumedUpCount = 0
@@ -1954,7 +2114,11 @@ class KeyMapControllerTest {
 
         //when
         trigger.keys.forEach {
-            inputKeyEvent(it.keyCode, KeyEvent.ACTION_DOWN, triggerKeyDeviceToInputDevice(it.device))
+            inputKeyEvent(
+                it.keyCode,
+                KeyEvent.ACTION_DOWN,
+                triggerKeyDeviceToInputDevice(it.device)
+            )
         }
 
         advanceUntilIdle()
@@ -2168,9 +2332,9 @@ class KeyMapControllerTest {
         ),
         arrayOf(
             "parallel", parallelTrigger(
-            triggerKey(KeyEvent.KEYCODE_VOLUME_DOWN),
-            triggerKey(KeyEvent.KEYCODE_VOLUME_UP)
-        )
+                triggerKey(KeyEvent.KEYCODE_VOLUME_DOWN),
+                triggerKey(KeyEvent.KEYCODE_VOLUME_UP)
+            )
         )
     )
 
@@ -3085,11 +3249,17 @@ class KeyMapControllerTest {
         delay: Long? = null
     ) {
         require(trigger.mode is TriggerMode.Parallel)
+        var metaState = 0
 
-        trigger.keys.forEach {
-            val deviceDescriptor = triggerKeyDeviceToInputDevice(it.device)
+        trigger.keys.forEach { key ->
+            val deviceDescriptor = triggerKeyDeviceToInputDevice(key.device)
 
-            inputKeyEvent(it.keyCode, KeyEvent.ACTION_DOWN, deviceDescriptor)
+            if (KeyEventUtils.isModifierKey(key.keyCode)) {
+                metaState =
+                    metaState.withFlag(KeyEventUtils.modifierKeycodeToMetaState(key.keyCode))
+            }
+
+            inputKeyEvent(key.keyCode, KeyEvent.ACTION_DOWN, deviceDescriptor, metaState)
         }
 
         if (delay != null) {
@@ -3101,14 +3271,23 @@ class KeyMapControllerTest {
             }
         }
 
-        trigger.keys.forEach {
-            val deviceDescriptor = triggerKeyDeviceToInputDevice(it.device)
+        trigger.keys.forEach { key ->
+            val deviceDescriptor = triggerKeyDeviceToInputDevice(key.device)
 
-            inputKeyEvent(it.keyCode, KeyEvent.ACTION_UP, deviceDescriptor)
+            if (KeyEventUtils.isModifierKey(key.keyCode)) {
+                metaState =
+                    metaState.minusFlag(KeyEventUtils.modifierKeycodeToMetaState(key.keyCode))
+            }
+
+            inputKeyEvent(key.keyCode, KeyEvent.ACTION_UP, deviceDescriptor, metaState)
         }
     }
 
-    private fun triggerKeyDeviceToInputDevice(device: TriggerKeyDevice, deviceId: Int = 0, isGameController: Boolean = false): InputDeviceInfo {
+    private fun triggerKeyDeviceToInputDevice(
+        device: TriggerKeyDevice,
+        deviceId: Int = 0,
+        isGameController: Boolean = false
+    ): InputDeviceInfo {
         return when (device) {
             TriggerKeyDevice.Any -> InputDeviceInfo(
                 descriptor = "any_device",

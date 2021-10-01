@@ -32,30 +32,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import splitties.bitflags.minusFlag
 import splitties.bitflags.withFlag
-import kotlin.collections.List
-import kotlin.collections.MutableList
-import kotlin.collections.Set
-import kotlin.collections.all
-import kotlin.collections.any
-import kotlin.collections.flatMap
-import kotlin.collections.forEach
-import kotlin.collections.forEachIndexed
-import kotlin.collections.getOrNull
-import kotlin.collections.indices
-import kotlin.collections.isNotEmpty
-import kotlin.collections.last
-import kotlin.collections.lastIndex
-import kotlin.collections.listOf
-import kotlin.collections.map
-import kotlin.collections.maxOrNull
-import kotlin.collections.mutableListOf
-import kotlin.collections.mutableMapOf
-import kotlin.collections.mutableSetOf
 import kotlin.collections.set
-import kotlin.collections.toIntArray
-import kotlin.collections.toSet
-import kotlin.collections.toTypedArray
-import kotlin.collections.withIndex
 
 /**
  * Created by sds100 on 05/05/2020.
@@ -80,10 +57,10 @@ class KeyMapController(
          */
         fun performActionOnDown(trigger: KeyMapTrigger): Boolean {
             return (trigger.keys.size <= 1
-                && trigger.keys.getOrNull(0)?.clickType != ClickType.DOUBLE_PRESS
-                && trigger.mode == TriggerMode.Undefined)
+                    && trigger.keys.getOrNull(0)?.clickType != ClickType.DOUBLE_PRESS
+                    && trigger.mode == TriggerMode.Undefined)
 
-                || trigger.mode is TriggerMode.Parallel
+                    || trigger.mode is TriggerMode.Parallel
         }
     }
 
@@ -121,13 +98,15 @@ class KeyMapController(
                 val sequenceTriggers = mutableListOf<KeyMapTrigger>()
                 val sequenceTriggerActions = mutableListOf<IntArray>()
                 val sequenceTriggerConstraints = mutableListOf<ConstraintState>()
-                val sequenceTriggerActionPerformers = mutableListOf<SequenceTriggerActionPerformer>()
+                val sequenceTriggerActionPerformers =
+                    mutableListOf<SequenceTriggerActionPerformer>()
 
                 val parallelTriggers = mutableListOf<KeyMapTrigger>()
                 val parallelTriggerActions = mutableListOf<IntArray>()
                 val parallelTriggerConstraints = mutableListOf<ConstraintState>()
                 val parallelTriggerModifierKeyIndices = mutableListOf<Pair<Int, Int>>()
-                val parallelTriggerActionPerformers = mutableListOf<ParallelTriggerActionPerformer>()
+                val parallelTriggerActionPerformers =
+                    mutableListOf<ParallelTriggerActionPerformer>()
 
                 for (keyMap in value) {
                     // ignore the keymap if it has no action.
@@ -154,7 +133,7 @@ class KeyMapController(
                         }
 
                         if ((keyMap.trigger.mode == TriggerMode.Sequence
-                                || keyMap.trigger.mode == TriggerMode.Undefined)
+                                    || keyMap.trigger.mode == TriggerMode.Undefined)
                             && key.clickType == ClickType.DOUBLE_PRESS
                         ) {
                             doublePressKeys.add(TriggerKeyLocation(sequenceTriggerIndex, keyIndex))
@@ -178,11 +157,19 @@ class KeyMapController(
 
                     val encodedActionList = encodeActionList(keyMap.actionList)
 
-                    if (keyMap.actionList.any { it.data is ActionData.InputKeyEvent && isModifierKey(it.data.keyCode) }) {
+                    if (keyMap.actionList.any {
+                            it.data is ActionData.InputKeyEvent && isModifierKey(
+                                it.data.keyCode
+                            )
+                        }) {
                         modifierKeyEventActions = true
                     }
 
-                    if (keyMap.actionList.any { it.data is ActionData.InputKeyEvent && !isModifierKey(it.data.keyCode) }) {
+                    if (keyMap.actionList.any {
+                            it.data is ActionData.InputKeyEvent && !isModifierKey(
+                                it.data.keyCode
+                            )
+                        }) {
                         notModifierKeyEventActions = true
                     }
 
@@ -376,8 +363,10 @@ class KeyMapController(
                 detectSequenceDoublePresses = doublePressKeys.isNotEmpty()
                 this.doublePressTriggerKeys = doublePressKeys.toTypedArray()
 
-                this.parallelTriggerActionPerformers = parallelTriggerActionPerformers.toTypedArray()
-                this.sequenceTriggerActionPerformers = sequenceTriggerActionPerformers.toTypedArray()
+                this.parallelTriggerActionPerformers =
+                    parallelTriggerActionPerformers.toTypedArray()
+                this.sequenceTriggerActionPerformers =
+                    sequenceTriggerActionPerformers.toTypedArray()
 
                 reset()
             }
@@ -482,6 +471,10 @@ class KeyMapController(
      */
     private var lastMatchedParallelEventIndices = intArrayOf()
 
+    /**
+     * Stores a list of trigger keys that are modifier keys. Each element is the trigger index
+     * with the key index in that trigger.
+     */
     private var parallelTriggerModifierKeyIndices = arrayOf<Pair<Int, Int>>()
 
     /**
@@ -516,8 +509,10 @@ class KeyMapController(
      */
     private val parallelTriggerLongPressJobs = SparseArrayCompat<Job>()
 
-    private var parallelTriggerActionPerformers: Array<ParallelTriggerActionPerformer> = emptyArray()
-    private var sequenceTriggerActionPerformers: Array<SequenceTriggerActionPerformer> = emptyArray()
+    private var parallelTriggerActionPerformers: Array<ParallelTriggerActionPerformer> =
+        emptyArray()
+    private var sequenceTriggerActionPerformers: Array<SequenceTriggerActionPerformer> =
+        emptyArray()
 
     private val currentTime: Long
         get() = useCase.currentTime
@@ -586,7 +581,7 @@ class KeyMapController(
 
         metaStateFromKeyEvent = metaState
 
-        //remove the metastate from any modifier keys that remapped and are pressed down
+        //remove the metastate from any modifier keys that are remapped and are pressed down
         parallelTriggerModifierKeyIndices.forEach {
             val triggerIndex = it.first
             val eventIndex = it.second
@@ -712,6 +707,13 @@ class KeyMapController(
                     }
                 }
 
+                if (lastMatchedIndex == -1 && metaStateFromKeyEvent != KeyEventUtils.modifierKeycodeToMetaState(
+                        parallelTriggers[triggerIndex].keys[0].keyCode
+                    ) && KeyEventUtils.isModifierKey(parallelTriggers[triggerIndex].keys[0].keyCode)
+                ) {
+                    continue@triggerLoop
+                }
+
                 val nextIndex = lastMatchedIndex + 1
 
                 if (parallelTriggers[triggerIndex].matchingEventAtIndex(
@@ -775,8 +777,10 @@ class KeyMapController(
                                 val actionKeyCode = action.data.keyCode
 
                                 if (isModifierKey(actionKeyCode)) {
-                                    val actionMetaState = KeyEventUtils.modifierKeycodeToMetaState(actionKeyCode)
-                                    metaStateFromActions = metaStateFromActions.withFlag(actionMetaState)
+                                    val actionMetaState =
+                                        KeyEventUtils.modifierKeycodeToMetaState(actionKeyCode)
+                                    metaStateFromActions =
+                                        metaStateFromActions.withFlag(actionMetaState)
                                 }
                             }
 
@@ -1160,7 +1164,10 @@ class KeyMapController(
                             actionKeys.forEach { actionKey ->
 
                                 actionMap[actionKey]?.let { action ->
-                                    if (action.data is ActionData.InputKeyEvent && isModifierKey(action.data.keyCode)) {
+                                    if (action.data is ActionData.InputKeyEvent && isModifierKey(
+                                            action.data.keyCode
+                                        )
+                                    ) {
                                         val actionMetaState =
                                             KeyEventUtils.modifierKeycodeToMetaState(action.data.keyCode)
 
@@ -1491,31 +1498,31 @@ class KeyMapController(
             TriggerKeyDevice.Any -> this.keyCode == event.keyCode && this.clickType == event.clickType
             is TriggerKeyDevice.External ->
                 this.keyCode == event.keyCode
-                    && event.descriptor != null
-                    && event.descriptor == this.device.descriptor
-                    && this.clickType == event.clickType
+                        && event.descriptor != null
+                        && event.descriptor == this.device.descriptor
+                        && this.clickType == event.clickType
 
             TriggerKeyDevice.Internal ->
                 this.keyCode == event.keyCode
-                    && event.descriptor == null
-                    && this.clickType == event.clickType
+                        && event.descriptor == null
+                        && this.clickType == event.clickType
         }
     }
 
     private fun TriggerKey.matchesWithOtherKey(otherKey: TriggerKey): Boolean {
         return when (this.device) {
             TriggerKeyDevice.Any -> this.keyCode == otherKey.keyCode
-                && this.clickType == otherKey.clickType
+                    && this.clickType == otherKey.clickType
 
             is TriggerKeyDevice.External ->
                 this.keyCode == otherKey.keyCode
-                    && this.device == otherKey.device
-                    && this.clickType == otherKey.clickType
+                        && this.device == otherKey.device
+                        && this.clickType == otherKey.clickType
 
             TriggerKeyDevice.Internal ->
                 this.keyCode == otherKey.keyCode
-                    && otherKey.device == TriggerKeyDevice.Internal
-                    && this.clickType == otherKey.clickType
+                        && otherKey.device == TriggerKeyDevice.Internal
+                        && this.clickType == otherKey.clickType
         }
     }
 

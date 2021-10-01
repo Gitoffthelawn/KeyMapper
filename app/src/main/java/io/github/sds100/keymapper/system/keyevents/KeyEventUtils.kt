@@ -765,7 +765,7 @@ object KeyEventUtils {
         KeyEvent.KEYCODE_NUM_LOCK -> KeyEvent.META_NUM_LOCK_ON
         KeyEvent.KEYCODE_SCROLL_LOCK -> KeyEvent.META_SCROLL_LOCK_ON
 
-        else -> throw Exception("can't convert modifier $modifier to meta state")
+        else -> 0
     }
 
     val MODIFIER_LABELS = mapOf(
