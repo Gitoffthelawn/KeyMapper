@@ -60,9 +60,8 @@ object UseCases {
             ServiceLocator.packageManagerAdapter(ctx),
             ServiceLocator.permissionAdapter(ctx),
             ServiceLocator.inputMethodAdapter(ctx),
-            ServiceLocator.accessibilityServiceAdapter(ctx),
             ServiceLocator.settingsRepository(ctx),
-            ServiceLocator.shizukuAdapter(ctx),
+            ServiceLocator.accessibilityServiceAdapter(ctx),
             getActionError(ctx),
             getConstraintError(ctx)
         )
@@ -77,7 +76,7 @@ object UseCases {
         ServiceLocator.soundsManager(ctx),
         ServiceLocator.shizukuAdapter(ctx)
     )
-    
+
     fun getConstraintError(ctx: Context) = GetConstraintErrorUseCaseImpl(
         ServiceLocator.packageManagerAdapter(ctx),
         ServiceLocator.permissionAdapter(ctx),
@@ -135,7 +134,8 @@ object UseCases {
         ServiceLocator.displayAdapter(service),
         ServiceLocator.cameraAdapter(service),
         ServiceLocator.networkAdapter(service),
-        ServiceLocator.inputMethodAdapter(service)
+        ServiceLocator.inputMethodAdapter(service),
+        ServiceLocator.lockScreenAdapter(service)
     )
 
     fun performActions(ctx: Context, service: IAccessibilityService) =
