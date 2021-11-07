@@ -6,8 +6,8 @@ apply plugin: "androidx.navigation.safeargs.kotlin"
 apply plugin: "kotlinx-serialization"
 
 android {
-    compileSdkVersion 30
-    buildToolsVersion = '30.0.3'
+    compileSdkVersion 31
+    buildToolsVersion = '31.0.0'
 
     def versionProperties = new Properties()
     file("version.properties").withInputStream { versionProperties.load(it) }
@@ -15,7 +15,7 @@ android {
     defaultConfig {
         applicationId "io.github.sds100.keymapper"
         minSdkVersion 21
-        targetSdkVersion 30
+        targetSdkVersion 31
         versionCode versionProperties.getProperty("VERSION_CODE").toInteger()
         versionName versionProperties.getProperty("VERSION_NAME")
         multiDexEnabled true
@@ -117,7 +117,7 @@ dependencies {
     def room_version = "2.3.0"
     def coroutinesVersion = "1.5.0"
     def nav_version = '2.3.5'
-    def work_version = "2.6.0"
+    def work_version = "2.7.0"
     def epoxy_version = "4.6.2"
     def splitties_version = "3.0.0-beta01"
     def multidex_version = "2.0.1"
