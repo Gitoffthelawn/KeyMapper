@@ -74,6 +74,7 @@ sealed class Error : Result<Nothing>() {
                     Permission.IGNORE_BATTERY_OPTIMISATION -> R.string.error_battery_optimisation_enabled
                     Permission.SHIZUKU -> R.string.error_shizuku_permission_denied
                     Permission.ACCESS_FINE_LOCATION -> R.string.error_access_fine_location_permission_denied
+                    Permission.ANSWER_PHONE_CALL -> R.string.error_answer_phone_call
                 }
 
                 return resourceProvider.getString(resId)

@@ -1,9 +1,15 @@
 package io.github.sds100.keymapper
 
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
+import android.provider.Telephony
+import android.telecom.TelecomManager
+import android.telephony.TelephonyManager
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.getSystemService
+import androidx.core.telephony.TelephonyManagerCompat
 import androidx.databinding.DataBindingUtil
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.flowWithLifecycle

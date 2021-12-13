@@ -7,4 +7,6 @@ import io.github.sds100.keymapper.util.Result
  */
 interface PhoneAdapter {
     fun startCall(number: String):Result<*>
+    fun answerCall()
+    fun endCall()
 }

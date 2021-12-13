@@ -1041,6 +1041,7 @@
     <string name="error_no_file_name">This file has no name!</string>
 
     <string name="error_access_fine_location_permission_denied">Denied permission to read fine location!</string>
+    <string name="error_answer_phone_call">Denied permission to answer phone calls!</string>
     <!-- Error messages -->
 
     <!-- action labels -->
@@ -1194,6 +1195,8 @@
     <string name="action_open_url">Open URL</string>
     <string name="action_send_intent">Send intent</string>
     <string name="action_phone_call">Start phone call</string>
+    <string name="action_answer_call">Answer phone call</string>
+    <string name="action_end_call">End phone call</string>
     <string name="action_play_sound">Play sound</string>
     <string name="action_dismiss_most_recent_notification">Dismiss most recent notification</string>
     <string name="action_dismiss_all_notifications">Dismiss all notifications</string>
